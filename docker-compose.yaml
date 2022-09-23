@@ -1,0 +1,37 @@
+version: '3.9'
+
+services:
+    postgres:
+        image: postgres:14-alpine
+        restart: always
+        command: postgres
+        environment:
+            POSTGRES_PASSWORD: postgres
+        ports:
+            - "5432:5432"
+    minio:
+        image: minio/minio
+        restart: always
+        command: server --console-address ":9001" /data
+        environment:
+            TZ: "UTC"
+            MINIO_ROOT_USER: miniobackup
+            MINIO_ROOT_PASSWORD: miniobackup
+        ports:
+            - "9000:9000"
+            - "9001:9001"
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+            interval: 30s
+            timeout: 20s
+            retries: 3
+    minio-client:
+        image: minio/mc
+        depends_on:
+            - minio
+        entrypoint: >
+            /bin/sh -c "
+            /usr/bin/mc config host add minio http://minio:9000 miniobackup miniobackup;
+            /usr/bin/mc mb minio/backup;
+            exit 0;
+            "
