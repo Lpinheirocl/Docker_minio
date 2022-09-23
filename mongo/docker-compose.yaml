@@ -1,0 +1,41 @@
+version: '3.9'
+
+services:
+    mongodb:
+        image: mongo:latest
+        container_name: mongodb
+        restart: always
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: prius
+            MONGO_INITDB_ROOT_PASSWORD: prius
+            MONGO_INITDB_DATABASE: prius
+        ports:
+            - 27017:27017
+        volumes:
+            - ./init/mongo/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    minio:
+        image: minio/minio
+        restart: always
+        command: "server /data"
+        environment:
+            TZ: "UTC"
+            MINIO_ROOT_USER: miniobackup
+            MINIO_ROOT_PASSWORD: miniobackup
+        ports:
+            - "9000:9000"
+            - "42913:42913"
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+            interval: 30s
+            timeout: 20s
+            retries: 3
+    minio-client:
+        image: minio/mc
+        depends_on:
+            - minio
+        entrypoint: >
+            /bin/sh -c "
+            /usr/bin/mc config host add minio http://minio:9000 miniobackup miniobackup;
+            /usr/bin/mc mb minio/backup;
+            exit 0;
+            "
